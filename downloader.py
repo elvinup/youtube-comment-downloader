@@ -12,6 +12,8 @@ import lxml.html
 
 from lxml.cssselect import CSSSelector
 
+from lxml.html.clean import clean_html
+
 YOUTUBE_COMMENTS_URL = 'https://www.youtube.com/all_comments?v={youtube_id}'
 YOUTUBE_COMMENTS_AJAX_URL = 'https://www.youtube.com/comment_ajax'
 
@@ -37,7 +39,7 @@ def extract_comments(html):
                'time': time_sel(item)[0].text_content().strip(),
                'author': author_sel(item)[0].text_content(),
 	       'likes': like_sel(item)[0].text_content()}
-
+		
 
 def extract_reply_cids(html):
     tree = lxml.html.fromstring(html)
@@ -62,6 +64,7 @@ def download_comments(youtube_id, sleep=1):
     # Get Youtube page with initial comments
     response = session.get(YOUTUBE_COMMENTS_URL.format(youtube_id=youtube_id))
     html = response.text
+
     reply_cids = extract_reply_cids(html)
 
     ret_cids = []
@@ -93,7 +96,7 @@ def download_comments(youtube_id, sleep=1):
             break
 
         page_token, html = response
-
+	
         reply_cids += extract_reply_cids(html)
         for comment in extract_comments(html):
             if comment['cid'] not in ret_cids:
@@ -103,8 +106,10 @@ def download_comments(youtube_id, sleep=1):
         first_iteration = False
         time.sleep(sleep)
 
+    
     # Get replies (the same as pressing the 'View all X replies' link)
-    for cid in reply_cids:
+    for cid in reply_cids:	
+ 
         data = {'comment_id': cid,
                 'video_id': youtube_id,
                 'can_reply': 1,
@@ -123,11 +128,10 @@ def download_comments(youtube_id, sleep=1):
 
         for comment in extract_comments(html):
             if comment['cid'] not in ret_cids:
-                ret_cids.append(comment['cid'])
+		ret_cids.append(comment['cid'])
                 yield comment
+	
         time.sleep(sleep)
-
-
 def main(argv):
     parser = argparse.ArgumentParser(add_help=False, description=('Download Youtube comments without using the Youtube API'))
     parser.add_argument('--help', '-h', action='help', default=argparse.SUPPRESS, help='Show this help message and exit')
@@ -145,18 +149,43 @@ def main(argv):
         if not youtube_id or not output:
             parser.print_usage()
             raise ValueError('you need to specify a Youtube ID and an output filename')
+	print('Downloading Youtube comments for video:', youtube_id)
+	
 
-        print('Downloading Youtube comments for video:', youtube_id)
-        count = 0
+	threadList = []
+	count = 0
+	thread = 0
         with open(output, 'w') as fp:
             for comment in download_comments(youtube_id):
                 print(json.dumps(comment), file=fp)
+		
+		# Group comments with their respective threads as a list of comment lists 
+		# Ex: -> [[original post, reply, reply ..etc]..]	
+		if thread == 0:
+		    threadList.append([comment])
+		    thread += 1
+		else:
+		    if comment['cid'][:26] == threadList[thread-1][0]['cid'] and len(comment['cid']) > 26:
+			threadList[thread-1].append(comment)
+		    else:
+			threadList.append([comment])
+			thread += 1
+			
                 count += 1
                 sys.stdout.write('Downloaded %d comment(s)\r' % count)
                 sys.stdout.flush()
                 if limit and count >= limit:
                     break
-        print('\nDone!')
+	
+	
+	fp2 = open('threadLog.txt', 'w')
+	for i in threadList:
+	    print('', file = fp2)
+	    print(i, file = fp2)
+	    print('', file = fp2)
+  	fp2.close()
+        print('\n')
+	print('\nDone!')
 
 
     except Exception as e:
