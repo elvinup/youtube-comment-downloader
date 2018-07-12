@@ -30,12 +30,13 @@ def extract_comments(html):
     text_sel = CSSSelector('.comment-text-content')
     time_sel = CSSSelector('.time')
     author_sel = CSSSelector('.user-name')
-
+    like_sel = CSSSelector('.like-count')
     for item in item_sel(tree):
         yield {'cid': item.get('data-cid'),
                'text': text_sel(item)[0].text_content(),
                'time': time_sel(item)[0].text_content().strip(),
-               'author': author_sel(item)[0].text_content()}
+               'author': author_sel(item)[0].text_content(),
+	       'likes': like_sel(item)[0].text_content()}
 
 
 def extract_reply_cids(html):
