@@ -13,7 +13,7 @@ import lxml.html
 from lxml.cssselect import CSSSelector
 
 from lxml.html.clean import clean_html
-
+from lxml import etree
 YOUTUBE_COMMENTS_URL = 'https://www.youtube.com/all_comments?v={youtube_id}'
 YOUTUBE_COMMENTS_AJAX_URL = 'https://www.youtube.com/comment_ajax'
 
@@ -22,7 +22,9 @@ USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, lik
 
 def find_value(html, key, num_chars=2):
     pos_begin = html.find(key) + len(key) + num_chars
+    print("pos_begin: " + str(pos_begin))
     pos_end = html.find('"', pos_begin)
+    print("pos_end: " + str(pos_end))
     return html[pos_begin: pos_end]
 
 
@@ -64,7 +66,7 @@ def download_comments(youtube_id, sleep=1):
     # Get Youtube page with initial comments
     response = session.get(YOUTUBE_COMMENTS_URL.format(youtube_id=youtube_id))
     html = response.text
-
+    
     reply_cids = extract_reply_cids(html)
 
     ret_cids = []
@@ -94,7 +96,11 @@ def download_comments(youtube_id, sleep=1):
         response = ajax_request(session, YOUTUBE_COMMENTS_AJAX_URL, params, data)
         if not response:
             break
-
+	
+	print()
+	print(page_token)
+	print()
+	#print("Session Token" + str(session_token))
         page_token, html = response
 	
         reply_cids += extract_reply_cids(html)
